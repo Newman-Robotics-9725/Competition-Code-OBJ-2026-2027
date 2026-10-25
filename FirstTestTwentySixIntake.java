@@ -4,6 +4,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -25,9 +26,9 @@ import java.lang.Thread;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list
  */
 
-@TeleOp(name="INtake test", group="Linear OpMode")
+@TeleOp(name="Main Teleop", group="Linear OpMode")
 
-public class FirstTestTwentySixIntake extends LinearOpMode {
+public class MainCode extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
@@ -38,11 +39,21 @@ public class FirstTestTwentySixIntake extends LinearOpMode {
     private DcMotor inTake = null;
     private DcMotor launchMotorLeft = null; 
     private DcMotor launchMotorRight = null;
+    private Servo servol = null;
+    private Servo servor = null;
+    private CRServo plateServoL = null;
+    private CRServo plateServoR = null;
+    
+    double slPos = 0;
+    double srPos = 0;
+    double slinPos = 0;
+    double srinPos = 0;
+    double maxPow = 1;
     int power = 0;
     int direction = 0; 
     
     
-    public void setDrivePower(double leftFrontPower, double rightFrontPower, double rightBackPower, double leftBackPower) {
+        public void setDrivePower(double leftFrontPower, double rightFrontPower, double rightBackPower, double leftBackPower) {
             // Output the values to the motor drives.
             leftFrontDrive.setPower(leftFrontPower);
             rightFrontDrive.setPower(rightFrontPower);
@@ -78,9 +89,65 @@ public class FirstTestTwentySixIntake extends LinearOpMode {
             inTake.setPower(power + direction);
         }
         
-        public void launchBall (double rightPower, double leftPower){
-            launchMotorRight.setPower(rightPower); 
-            launchMotorLeft.setPower(leftPower);
+        public void moveAdjusters (boolean posONE, boolean posTWO){
+            if (posONE){
+                //servol.setPosition(servol.getPosition()+0.1);
+                //servor.setPosition(servor.getPosition()+0.1);
+                servol.setPosition(1);
+                servor.setPosition(1);
+            }
+            else if (posTWO){
+                //servol.setPosition(servol.getPosition()-0.1);
+                //servor.setPosition(servor.getPosition()-0.1);
+                servol.setPosition(0);
+                servor.setPosition(0);
+            }
+            else{
+                telemetry.addLine("nothing new");
+            }
+            slPos = servol.getPosition();
+            srPos = servor.getPosition();
+            telemetry.addLine("SR Pos is: " + srPos + ". SL Pos is: " + slPos);
+        }
+        
+        public void launchBall (double posPower, double negPower){
+            if (maxPow < (posPower - negPower)){
+                launchMotorRight.setPower(maxPow); 
+                launchMotorLeft.setPower(maxPow);
+            }
+            else{
+            launchMotorRight.setPower(posPower - negPower); 
+            launchMotorLeft.setPower(posPower - negPower);
+            }
+        }
+        
+        public void adjustLaunch (boolean right, boolean left){
+            if (right){
+                maxPow += 0.05;
+            }
+            if (left){
+                maxPow -=0.05;
+            }
+            sleep (100);
+        }
+        
+        public void plateLift (boolean locOne, boolean locTwo){
+            if (locOne == true){
+                //servo encoded poorly
+                plateServoL.setPower(1);
+                plateServoR.setPower(1);
+            }
+            else if (locTwo == true){
+                plateServoL.setPower(-1);
+                plateServoR.setPower(-1);
+            }
+            else{
+                telemetry.addLine("nothing new lift");
+                plateServoL.setPower(0);
+                plateServoR.setPower(0);
+            }
+            //srinPos = plateServoR.getPosition();
+            //telemetry.addLine("SRin Power is: " + slinPos + ". SLin Pos is: " + srinPos);
         }
 
     @Override
@@ -96,9 +163,12 @@ public class FirstTestTwentySixIntake extends LinearOpMode {
         leftBackDrive = hardwareMap.get(DcMotor.class, "drivebl");//port 2
         rightBackDrive = hardwareMap.get(DcMotor.class, "drivebr");//port 3
         inTake = hardwareMap.get(DcMotor.class, "intake");//port 1 ex
-        launchMotorLeft = hardwareMap.get(DcMotor.class, "launchLeft");// part 0 ex
-        launchMotorRight = hardwareMap.get(DcMotor.class, "launchRight");// part 2 ex
-        
+        launchMotorLeft = hardwareMap.get(DcMotor.class, "launchLeft");// port 0 ex
+        launchMotorRight = hardwareMap.get(DcMotor.class, "launchRight");// port 2 ex
+        servol = hardwareMap.get(Servo.class, "leftServo");// port 0
+        servor = hardwareMap.get(Servo.class, "rightServo");// port 1
+        plateServoL = hardwareMap.get(CRServo.class, "intakeLeft"); //2
+        plateServoR = hardwareMap.get(CRServo.class, "intakeRight"); //3
         
 
         // To drive forward, most robots need the motor on one side to be reversed, because the axles point in opposite directions.
@@ -111,6 +181,10 @@ public class FirstTestTwentySixIntake extends LinearOpMode {
         inTake.setDirection(DcMotor.Direction.FORWARD);
         launchMotorLeft.setDirection(DcMotor.Direction.FORWARD);
         launchMotorRight.setDirection(DcMotor.Direction.REVERSE);
+        servol.setDirection(Servo.Direction.REVERSE); //flips 1 and 0 position
+        servor.setDirection(Servo.Direction.FORWARD);
+        plateServoL.setDirection(CRServo.Direction.FORWARD);
+        plateServoR.setDirection(CRServo.Direction.REVERSE);
 
         // Wait for the game to start (driver presses START)
         waitForStart();
@@ -121,10 +195,12 @@ public class FirstTestTwentySixIntake extends LinearOpMode {
             //driveRobot(gamepad1.left_stick_x, -gamepad1.left_stick_y, gamepad1.right_stick_x);
             driveRobot(gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x);
             moveIntake(gamepad1.left_bumper, gamepad1.right_bumper);
-            launchBall(gamepad1.right_trigger, gamepad1.right_trigger);
-            // Show the elapsed game time and wheel power.
-            //telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
-            //telemetry.addData("Launch Power (%.2f)", launchPower);
+            launchBall(gamepad2.right_trigger, gamepad2.left_trigger);
+            moveAdjusters(gamepad2.dpad_up, gamepad2.dpad_down);
+            adjustLaunch(gamepad2.dpad_right, gamepad2.dpad_left);
+            plateLift(gamepad2.y, gamepad2.x);
+            telemetry.addLine("launcher had a max power of " + maxPow);
+            telemetry.addLine("CRservo power R: " + plateServoR.getPower() + " L: " + plateServoR.getPower());
             telemetry.update();
         }
     }
